@@ -1,0 +1,9 @@
+{
+  "tailwindCSS.experimental.classRegex": [
+    "tw`([^`]*)",
+    "tw\\.style\\(([^)]*)\\)"
+  ],
+  "tailwindCSS.experimental.configFile": "src/tailwind.config.ts",
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2
+}

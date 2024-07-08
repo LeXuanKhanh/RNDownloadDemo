@@ -5,61 +5,141 @@
  * @format
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useMemo} from 'react';
 import {
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
+  TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native';
 
+import {Colors, Header} from 'react-native/Libraries/NewAppScreen';
+import tw from './src/tailwindcss';
 import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+  DownloadFileRequest,
+  getDownloadPermissionAndroid,
+  rnDownloadFile,
+} from './src/file';
+import ReactNativeBlobUtil, {FetchBlobResponse} from 'react-native-blob-util';
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  };
+
+  const imageUrl =
+    'https://fastly.picsum.photos/id/814/200/200.jpg?hmac=cpUMsYdlkULqgLonFpQyNS2QBtsSI7vTX1_ew8-lS8A';
+  const imageFileName = useMemo(() => {
+    return imageUrl.split('/').pop()?.split('?').shift() ?? 'image.jpg';
+  }, [imageUrl]);
+  const pdfUrl = 'https://pdfobject.com/pdf/sample.pdf';
+
+  const excelUrl =
+    'https://www.cmu.edu/blackboard/files/evaluate/tests-example.xls';
+
+  const getFileName = (url: string) => {
+    return url.split('/').pop()?.split('?').shift();
+  };
+
+  const handleDownloadImage = async () => {
+    const request: DownloadFileRequest = {
+      url: imageUrl,
+      fileName: imageFileName,
+      mimeType: 'image/jpg',
+    };
+
+    if (Platform.OS === 'android') {
+      getDownloadPermissionAndroid().then(async granted => {
+        if (granted) {
+          await handleDownloadFile(request);
+        }
+      });
+    } else {
+      await handleDownloadFile(request);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    const request: DownloadFileRequest = {
+      url: pdfUrl,
+      fileName: getFileName(pdfUrl) ?? 'pdf_file.pdf',
+      mimeType: 'application/pdf',
+    };
+
+    if (Platform.OS === 'android') {
+      getDownloadPermissionAndroid().then(async granted => {
+        if (granted) {
+          await handleDownloadFile(request);
+        }
+      });
+    } else {
+      await handleDownloadFile(request);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    const request: DownloadFileRequest = {
+      url: excelUrl,
+      fileName: getFileName(excelUrl) ?? 'pdf_file.xls',
+      mimeType: 'application/vnd.ms-excel',
+    };
+
+    if (Platform.OS === 'android') {
+      getDownloadPermissionAndroid().then(async granted => {
+        if (granted) {
+          await handleDownloadFile(request);
+        }
+      });
+    } else {
+      await handleDownloadFile(request);
+    }
+  };
+
+  const handleDownloadFile = async (request: DownloadFileRequest) => {
+    const response = await rnDownloadFile(request);
+    if (response) {
+      if (Platform.OS === 'android') {
+        await handleCopyFileToDownloadFolder(request, response);
+        response.flush();
+      }
+      console.log('download file success');
+      console.log(response);
+    } else {
+      console.log('download file failed');
+    }
+  };
+
+  const handleCopyFileToDownloadFolder = async (
+    request: DownloadFileRequest,
+    response: FetchBlobResponse,
+  ) => {
+    if (!response) {
+      return;
+    }
+
+    const newPath = await ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
+      {
+        name: request.fileName,
+        mimeType: request.mimeType,
+        parentFolder: '',
+      },
+      'Download',
+      response.path(),
+    );
+
+    ReactNativeBlobUtil.android.addCompleteDownload({
+      title: request.fileName,
+      description: 'Download complete',
+      mime: request.mimeType ?? '',
+      path: newPath,
+      showNotification: true,
+    });
   };
 
   return (
@@ -76,43 +156,30 @@ function App(): React.JSX.Element {
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
           }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+          <TouchableOpacity onPress={handleDownloadImage}>
+            <View
+              style={tw`m-[8px] py-[8px] bg-primary justify-center items-center rounded-[16px]`}>
+              <Text style={tw`text-white font-semibold`}>Download image</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleDownloadPDF}>
+            <View
+              style={tw`m-[8px] py-[8px] bg-primary justify-center items-center rounded-[16px]`}>
+              <Text style={tw`text-white font-semibold`}>Download pdf</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleDownloadExcel}>
+            <View
+              style={tw`m-[8px] py-[8px] bg-primary justify-center items-center rounded-[16px]`}>
+              <Text style={tw`text-white font-semibold`}>Download excel</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
